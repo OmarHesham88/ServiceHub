@@ -1,0 +1,351 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>النخيل ريزيدنس 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<style>
+/* Layout: full-screen 3D stage; three tabs in the header; view controls float over the stage */
+:root{
+  --bg:#eef0ee; --stage:#e2e7e5; --panel:#ffffff; --fg:#1f2a2c; --mut:#5d6b6e; --line:#d5dbd9;
+  --accent:#14808c; --accent-fg:#ffffff; --tag:#1f2a2c; --tag-fg:#ffffff;
+  --f:"IBM Plex Sans Arabic",system-ui,"Segoe UI",Tahoma,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121718;--stage:#1a2123;--panel:#1f282a;--fg:#e8eeee;--mut:#9fb0b2;--line:#2f3a3c;--accent:#3fb5c1;--accent-fg:#0d1416;--tag:#f2f5f5;--tag-fg:#142022;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121718;--stage:#1a2123;--panel:#1f282a;--fg:#e8eeee;--mut:#9fb0b2;--line:#2f3a3c;--accent:#3fb5c1;--accent-fg:#0d1416;--tag:#f2f5f5;--tag-fg:#142022;color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f);overflow:hidden}
+[hidden]{display:none!important}
+.app{position:relative;height:100%;display:flex;flex-direction:column}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand b{font-size:18px;font-weight:700;display:block}
+.brand span{font-size:12px;color:var(--mut)}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.seg button{font:inherit;font-size:14px;font-weight:600;border:0;background:transparent;color:var(--mut);padding:7px 16px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stage{position:relative;flex:1;min-height:0;background:var(--stage);overflow:hidden}
+#view,#labels{position:absolute;inset:0}
+#view canvas{display:block;touch-action:none}
+#labels{pointer-events:none}
+.bar{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:max-content;max-width:calc(100% - 32px);z-index:3}
+.chip{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+select.chip{appearance:none;-webkit-appearance:none;padding-inline:14px}
+.card{position:absolute;z-index:3;top:12px;inset-inline-start:16px;width:250px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+.card h2{margin:0 0 2px;font-size:17px}
+.card .sub{color:var(--mut);font-size:12px;margin-bottom:10px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.stats div{background:var(--bg);border-radius:8px;padding:6px;text-align:center}
+.stats b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+.stats span{font-size:11px;color:var(--mut)}
+.card ul{list-style:none;margin:0;padding:0;font-size:12.5px;max-height:30vh;overflow:auto}
+.card li{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid var(--line)}
+.card li span:last-child{color:var(--mut);font-variant-numeric:tabular-nums;direction:ltr}
+.tgl{display:none;font:inherit;font-size:12px;margin-top:8px;border:0;background:transparent;color:var(--accent);cursor:pointer;padding:0;font-weight:600}
+.note{font-size:11.5px;color:var(--mut)}
+.hot{position:absolute;left:0;top:0;font-size:11.5px;font-weight:600;background:var(--tag);color:var(--tag-fg);border-radius:6px;padding:3px 7px;white-space:nowrap;line-height:1.35;text-align:center;opacity:.92;will-change:transform}
+.hot small{display:block;font-weight:400;opacity:.75;font-size:10px;direction:ltr}
+.hint{position:absolute;z-index:3;top:12px;inset-inline-end:16px;font-size:12px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+.status{position:absolute;inset:0;display:grid;place-items:center;font-size:14px;color:var(--mut);z-index:2;pointer-events:none;text-align:center}
+.status small{display:block;font-size:12px;margin-top:4px}
+/* walk mode */
+.room{position:absolute;z-index:4;top:12px;left:50%;transform:translateX(-50%);background:var(--tag);color:var(--tag-fg);font-size:14px;font-weight:600;border-radius:999px;padding:6px 16px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.whint{position:absolute;z-index:4;bottom:calc(76px + env(safe-area-inset-bottom,0px));right:max(16px,env(safe-area-inset-right,0px));max-width:230px;font-size:12px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.speed{position:absolute;z-index:4;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(234px + env(safe-area-inset-bottom,0px));width:190px;background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:grid;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.speed label{font-size:12px;color:var(--mut);display:flex;justify-content:space-between}
+.speed label b{color:var(--fg);font-variant-numeric:tabular-nums}
+.speed input{width:100%;accent-color:var(--accent);margin:0}
+.spdq{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.spdq button{font:inherit;font-size:11px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;padding:4px 0;cursor:pointer}
+.spdq button.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.pad{position:absolute;z-index:4;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(70px + env(safe-area-inset-bottom,0px));width:156px;height:156px;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);gap:4px;direction:ltr}
+.pad button{font:inherit;font-size:18px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 80%,transparent);color:var(--fg);cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.pad button.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.pad .up{grid-area:1/2}.pad .lt{grid-area:2/1}.pad .rt{grid-area:2/3}.pad .dn{grid-area:3/2}
+.walking #view canvas{cursor:grab}
+@media (max-width:640px){
+  header{gap:8px} .seg button{font-size:13px;padding:6px 12px}
+  .card{top:auto;bottom:calc(64px + env(safe-area-inset-bottom,0px));inset-inline:16px;width:auto;padding:10px 12px}
+  .card ul{display:none} .card.open ul{display:block;max-height:22vh} .tgl{display:inline}
+  .stats{margin-bottom:4px}
+  .hint,.whint{display:none}
+  .hot{font-size:10px;padding:2px 5px} .hot small{display:none}
+  .speed{width:156px;bottom:calc(232px + env(safe-area-inset-bottom,0px))}
+  .room{font-size:12.5px;padding:5px 12px}
+}
+</style>
+<div class="app">
+  <header>
+    <div class="brand"><b>النخيل ريزيدنس</b><span>مشروع تجريبي • تصوّر تخيلي</span></div>
+    <div class="seg" role="group" aria-label="العرض">
+      <button id="v-building" aria-pressed="true">العمارة كاملة</button>
+      <button id="v-floor" aria-pressed="false">الدور المتكرر</button>
+      <button id="v-walk" aria-pressed="false">تمشّى جوه</button>
+    </div>
+  </header>
+  <div class="stage">
+    <div id="view" aria-label="نموذج ثلاثي الأبعاد لعمارة النخيل ريزيدنس"></div>
+    <div id="labels"></div>
+    <div class="status" id="status">جاري تحميل النموذج…</div>
+    <div class="hint" id="hint">اسحب للدوران • قرّب بإصبعين أو بعجلة الماوس</div>
+    <aside class="card" id="card" hidden></aside>
+    <div class="room" id="room" hidden></div>
+    <div class="speed" id="speed" hidden>
+      <label for="spd">السرعة <b id="spdv">١×</b></label>
+      <input type="range" id="spd" min="0.5" max="3" step="0.25" value="1" aria-label="سرعة المشي">
+      <div class="spdq"><button data-v="0.6">بطيء</button><button data-v="1">عادي</button><button data-v="1.8">سريع</button><button data-v="2.8">جري</button></div>
+    </div>
+    <div class="pad" id="pad" hidden aria-label="أسهم المشي">
+      <button data-k="arrowup" class="up" aria-label="لقدّام">▲</button>
+      <button data-k="arrowright" class="rt" aria-label="لف يمين">▶</button>
+      <button data-k="arrowdown" class="dn" aria-label="لورا">▼</button>
+      <button data-k="arrowleft" class="lt" aria-label="لف شمال">◀</button>
+    </div>
+    <div class="whint" id="whint" hidden>الأسهم علشان تمشي وتلف • اسحب بالماوس علشان تبص • أو دوس على الأرض</div>
+    <div class="bar" id="bar"></div>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+
+const APTS=[{"id": 1, "area": 116, "beds": 2, "baths": 2, "center": [5.5, 0, 15.75], "rooms": [{"n": "النوم الرئيسية", "a": 20.4, "d": "4.62×4.41", "p": [2.31, 1.2, 18.8]}, {"n": "حمام", "a": 7.8, "d": "1.76×4.41", "p": [5.5, 1.2, 18.8]}, {"n": "غرفة ٢", "a": 20.4, "d": "4.62×4.41", "p": [8.69, 1.2, 18.8]}, {"n": "الريسيبشن", "a": 41.5, "d": "6.82×6.09", "p": [3.41, 1.2, 13.54]}, {"n": "المطبخ", "a": 13.2, "d": "4.18×3.15", "p": [8.91, 1.2, 15.02]}, {"n": "حمام ضيوف", "a": 5.8, "d": "1.98×2.94", "p": [7.81, 1.2, 11.97]}, {"n": "المدخل", "a": 6.5, "d": "2.20×2.94", "p": [9.9, 1.2, 11.97]}]}, {"id": 2, "area": 116, "beds": 2, "baths": 2, "center": [20.5, 0, 15.75], "rooms": [{"n": "النوم الرئيسية", "a": 20.4, "d": "4.62×4.41", "p": [23.69, 1.2, 18.8]}, {"n": "حمام", "a": 7.8, "d": "1.76×4.41", "p": [20.5, 1.2, 18.8]}, {"n": "غرفة ٢", "a": 20.4, "d": "4.62×4.41", "p": [17.31, 1.2, 18.8]}, {"n": "الريسيبشن", "a": 41.5, "d": "6.82×6.09", "p": [22.59, 1.2, 13.54]}, {"n": "المطبخ", "a": 13.2, "d": "4.18×3.15", "p": [17.09, 1.2, 15.02]}, {"n": "حمام ضيوف", "a": 5.8, "d": "1.98×2.94", "p": [18.19, 1.2, 11.97]}, {"n": "المدخل", "a": 6.5, "d": "2.20×2.94", "p": [16.1, 1.2, 11.97]}]}, {"id": 3, "area": 170, "beds": 3, "baths": 2, "center": [13.0, 0, 4.25], "rooms": [{"n": "النوم الرئيسية", "a": 24.3, "d": "6.80×3.57", "p": [6.4, 1.2, 1.78]}, {"n": "حمام", "a": 9.3, "d": "2.60×3.57", "p": [11.1, 1.2, 1.78]}, {"n": "غرفة ٢", "a": 18.9, "d": "5.30×3.57", "p": [15.05, 1.2, 1.78]}, {"n": "غرفة ٣", "a": 18.9, "d": "5.30×3.57", "p": [20.35, 1.2, 1.78]}, {"n": "الريسيبشن", "a": 61.1, "d": "12.40×4.93", "p": [9.2, 1.2, 6.04]}, {"n": "المطبخ", "a": 19.4, "d": "7.60×2.55", "p": [19.2, 1.2, 4.84]}, {"n": "حمام ضيوف", "a": 8.6, "d": "3.60×2.38", "p": [17.2, 1.2, 7.31]}, {"n": "المدخل", "a": 9.5, "d": "4.00×2.38", "p": [21.0, 1.2, 7.31]}]}]
+;
+const fmt=n=>Number(n).toLocaleString('ar-EG');
+const $=id=>document.getElementById(id);
+const view=$('view'),labels=$('labels'),bar=$('bar'),card=$('card'),status=$('status');
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// ================= renderer & scene =================
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+view.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+scene.environment=new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(),.04).texture;
+const stageBg=()=>new THREE.Color(css('--stage')),skyBg=new THREE.Color(0xcfdde6);
+const setBg=()=>{scene.background=walkOn?skyBg:stageBg();};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',setBg);
+new MutationObserver(setBg).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+scene.add(new THREE.HemisphereLight(0xffffff,0x8d8a80,.6));
+const sun=new THREE.DirectionalLight(0xfff1dc,2.2);sun.position.set(-30,60,50);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:200});sun.shadow.bias=-.0005;sun.shadow.normalBias=.04;
+sun.target.position.set(13,0,10.5);scene.add(sun,sun.target);
+const lamp=new THREE.PointLight(0xfff0dd,0,9,1.4);scene.add(lamp);   // soft light that travels with you in walk mode
+
+const cam=new THREE.PerspectiveCamera(35,1,.1,2000);
+const controls=new OrbitControls(cam,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=.08;controls.maxPolarAngle=Math.PI*.49;controls.minDistance=6;controls.maxDistance=180;controls.screenSpacePanning=true;
+function resize(){const r=view.getBoundingClientRect();renderer.setSize(r.width,r.height);cam.aspect=r.width/Math.max(1,r.height);cam.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(view);resize();
+
+let tween=null;
+function goTo(target,theta,phi,dist,instant=false){
+  const t=new THREE.Vector3(...target),s=new THREE.Spherical(dist,THREE.MathUtils.degToRad(phi),THREE.MathUtils.degToRad(theta));
+  const p=new THREE.Vector3().setFromSpherical(s).add(t);
+  if(instant||matchMedia('(prefers-reduced-motion: reduce)').matches){controls.target.copy(t);cam.position.copy(p);tween=null;return;}
+  tween={t0:performance.now(),d:900,fromT:controls.target.clone(),fromP:cam.position.clone(),toT:t,toP:p};}
+
+// ================= models =================
+const loader=new GLTFLoader(),cache={};let current=null;
+async function load(name){
+  if(cache[name])return cache[name];
+  const gltf=await loader.loadAsync(name+'.glb');
+  gltf.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;const m=o.material;
+    if(m&&(m.transmission>0||/Glass|Rail/i.test(m.name))){m.transmission=0;m.transparent=true;m.opacity=.35;m.depthWrite=false;m.roughness=.05;m.metalness=.1;}}});
+  return cache[name]=gltf.scene;}
+
+// ================= orbit views: hotspots & apartment card =================
+let view_='building',apt=0,hots=[];
+function clearHots(){labels.innerHTML='';hots=[];}
+function addHots(){clearHots();APTS.forEach(a=>a.rooms.forEach(r=>{const el=document.createElement('div');el.className='hot';el.innerHTML=r.n+'<small>'+fmt(r.a)+' م²</small>';labels.appendChild(el);hots.push({el,p:new THREE.Vector3(...r.p),apt:a.id});}));}
+const v=new THREE.Vector3();
+function placeHots(){const w=view.clientWidth,h=view.clientHeight;
+  for(const o of hots){v.copy(o.p).project(cam);const show=v.z<1&&(apt===0||o.apt===apt)&&Math.abs(v.x)<1.05&&Math.abs(v.y)<1.05;
+    o.el.style.display=show?'':'none';if(show)o.el.style.transform=`translate(-50%,-50%) translate(${(v.x*.5+.5)*w}px,${(-v.y*.5+.5)*h}px)`;}}
+function chip(t,on,fn){const b=document.createElement('button');b.className='chip';b.textContent=t;b.setAttribute('aria-pressed',on);
+  b.onclick=()=>{bar.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');fn();};bar.appendChild(b);return b;}
+function setBar(){bar.innerHTML='';
+  if(view_==='building'){
+    chip('الواجهة',true,()=>goTo([13,12,12],-25,78,72));
+    chip('من أعلى',false,()=>goTo([13,8,10.5],35,42,95));
+    chip('الخلف',false,()=>goTo([13,12,10.5],155,75,75));
+  }else{chip('الدور كله',apt===0,()=>focusApt(0));APTS.forEach(a=>chip('شقة '+fmt(a.id),apt===a.id,()=>focusApt(a.id)));}}
+function focusApt(id){apt=id;
+  if(!id){goTo([13,0,10.5],-15,48,44);showCard(null);return;}
+  const a=APTS[id-1];goTo(a.center,id===3?180:id===1?-25:25,40,id===3?30:24);showCard(a);}
+function showCard(a){card.hidden=false;card.classList.remove('open');
+  if(!a){card.innerHTML='<h2>الدور المتكرر</h2><div class="sub">٣ شقق في كل دور • ٨ أدوار</div><div class="stats"><div><b>'+fmt(116)+'</b><span>شقة ١ و٢ م²</span></div><div><b>'+fmt(170)+'</b><span>شقة ٣ م²</span></div><div><b>'+fmt(24)+'</b><span>شقة إجمالي</span></div></div><div class="note">اختار شقة من تحت علشان تقرّب عليها وتشوف المساحات.</div>';return;}
+  card.innerHTML='<h2>شقة '+fmt(a.id)+'</h2><div class="sub">'+(a.id===3?'واجهة خلفية • ٣ جهات مفتوحة':'واجهة أمامية • بلكونة')+'</div>'+
+   '<div class="stats"><div><b>'+fmt(a.area)+'</b><span>م²</span></div><div><b>'+fmt(a.beds)+'</b><span>غرف نوم</span></div><div><b>'+fmt(a.baths)+'</b><span>حمام</span></div></div>'+
+   '<ul>'+a.rooms.map(r=>'<li><span>'+r.n+'</span><span>'+r.d+' m</span></li>').join('')+'</ul><button class="tgl" id="tgl">عرض المساحات</button>';
+  $('tgl').onclick=()=>card.classList.toggle('open');}
+
+// ================= walk mode: street → lobby → stairs → apartments =================
+const FH=3.2,NF=1;
+const PLACE=[(x,z)=>[x,21-z],(x,z)=>[26-x,21-z],(x,z)=>[3+x,z]];
+const DIMS=[{W:11,D:10.5,n:2},{W:11,D:10.5,n:2},{W:20,D:8.5,n:3}];
+const BACKN={2:[['bed','النوم الرئيسية',.42],['bath','الحمام',.16],['bed','غرفة النوم ٢',.42]],
+             3:[['bed','النوم الرئيسية',.34],['bath','الحمام',.13],['bed','غرفة النوم ٢',.265],['bed','غرفة النوم ٣',.265]]};
+function aptLayout(i){const {W,D,n}=DIMS[i],zb=D*.42,xk=W*.62,zk=D*.72,xe=W*.8,R=[];let x=0;
+  for(const [t,nm,fr] of BACKN[n]){R.push({t,n:nm,x1:x,z1:0,x2:x+fr*W,z2:zb});x+=fr*W;}
+  R.push({t:'liv',n:'الريسيبشن',x1:0,z1:zb,x2:xk,z2:D},{t:'kit',n:'المطبخ',x1:xk,z1:zb,x2:W,z2:zk},
+         {t:'bath',n:'حمام الضيوف',x1:xk,z1:zk,x2:xe,z2:D},{t:'ent',n:'المدخل',x1:xe,z1:zk,x2:W,z2:D});
+  return {W,D,zb,xk,zk,xe,R};}
+const ROOMS=[];DIMS.forEach((_,i)=>aptLayout(i).R.forEach(r=>{const a=PLACE[i](r.x1,r.z1),b=PLACE[i](r.x2,r.z2);
+  ROOMS.push({apt:i+1,n:r.n,x1:Math.min(a[0],b[0]),x2:Math.max(a[0],b[0]),z1:Math.min(a[1],b[1]),z2:Math.max(a[1],b[1])});}));
+const floorName=l=>l<=0?'الدور الأرضي':l===1?'الدور الأول':'الدور '+fmt(l);
+function whereAmI(x,z,feet){
+  const inFront=x>=0&&x<=26&&z>=10.5&&z<=21.05,inBack=x>=3&&x<=23&&z>=0&&z<10.5;
+  if(!inFront&&!inBack)return (z>21&&z<24.8&&x>8.5&&x<17.5)?'المدخل الرئيسي':'خارج العمارة';
+  if(x>11&&x<15&&z>12&&z<18.5)return 'السلم';
+  const l=Math.round(feet/FH);
+  if(l<=0)return 'الدور الأرضي • اللوبي';
+  if((z>=8.5&&z<=10.5&&x>3&&x<23)||(x>11&&x<15&&z>=10.5))return floorName(l)+' • الطرقة';
+  const r=ROOMS.find(r=>x>=r.x1&&x<=r.x2&&z>=r.z1&&z<=r.z2);return floorName(l)+(r?' • شقة '+fmt(r.apt)+' • '+r.n:'');}
+// guided route from the street, up the stairs, into apartment 1 on the first floor
+function routeTour(){const P=[];const add=(x,z,look,pause)=>P.push({p:[x,z],look,pause:pause||0});
+  add(13,31,[13,21],1.2); add(13,23.2,null,0); add(13,19.7,[5.5,14.5],1.6); add(9.6,19.4,null,0); add(9.6,11.3,null,0);
+  add(12,11.3,[12,17],.6); add(12,16.85,null,0); add(12,17.75,null,0); add(14,17.75,[14,12],.3); add(14,12.25,null,0);
+  add(14,11.2,[10,9.6],.6); add(12.4,9.6,null,0);
+  const L=aptLayout(0),T=PLACE[0],xd=(L.xe+L.W)/2,a=(x,z,lk,pz)=>P.push({p:T(x,z),look:lk?T(...lk):null,pause:pz||0});
+  a(xd,L.D+1.0,[xd,L.D-2],.6); a(xd,(L.zk+L.D)/2,null,.4); a((L.xk+L.W)/2,L.zk-.4,[L.W,L.zk-1],2);
+  a(3.85+1.75,L.zb+1.1,[3.85,L.zb],2); a(3.85+1.75,L.zb+1.1,[2.85,L.D-.6],1.6);
+  for(const r of L.R.filter(r=>r.z1===0)){const rc=(r.x1+r.x2)/2;a(rc,L.zb+.75,null,0);a(rc,L.zb*.62,[rc,0],2.2);a(rc,L.zb*.62,[rc,L.zb],.5);a(rc,L.zb+.75,null,0);}
+  return P;}
+
+const EYE=1.62,R_BODY=.28,STEP_UP=.32;
+let walkOn=false,walkModel=null,yaw=0,yawVel=0,pitch=-.04,bob=0,feet=0,vy=0,tour=null,speedMul=1,goal=null,cursor=null,levels=[];
+const pos=new THREE.Vector2(),vel=new THREE.Vector2(),keys={};
+let colliders=[];
+const ray=new THREE.Raycaster(),rO=new THREE.Vector3(),rD=new THREE.Vector3(),DOWN=new THREE.Vector3(0,-1,0);
+function blocked(x,z,dx,dz){const len=Math.hypot(dx,dz);if(len<1e-6)return false;rD.set(dx/len,0,dz/len);
+  for(const h of [.45,1.0,1.55]){rO.set(x,feet+h,z);ray.set(rO,rD);ray.far=len+R_BODY;if(ray.intersectObjects(colliders,false).length)return true;}return false;}
+function groundAt(x,z,from){rO.set(x,from+.9,z);ray.set(rO,DOWN);ray.far=8;const h=ray.intersectObjects(colliders,false)[0];return h?h.point.y:null;}
+function tryMove(mx,mz){if(blocked(pos.x,pos.y,mx,mz))return false;const g=groundAt(pos.x+mx,pos.y+mz,feet);
+  if(g!==null&&g-feet>STEP_UP)return false;pos.x+=mx;pos.y+=mz;return true;}
+const angTo=(dx,dz)=>Math.atan2(-dx,-dz);
+const lerpAng=(a,b,k)=>{let d=((b-a+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;return a+d*k;};
+function placeAt(x,z,f,lookX,lookZ){pos.set(x,z);feet=f;vy=0;vel.set(0,0);goal=null;yaw=angTo(lookX-x,lookZ-z);pitch=-.04;const g=groundAt(x,z,f);if(g!==null)feet=g;}
+const toStreet=()=>placeAt(13,31,0,13,21);
+const toFloor=l=>placeAt(13.4,9.6,l*FH,5,9.6);
+function stopTour(){if(!tour)return;tour=null;setWalkBar();}
+function startTour(){const P=routeTour();toStreet();tour={P,i:0,pause:P[0].pause};setWalkBar();}
+function setWalkBar(){bar.innerHTML='';
+  const st=document.createElement('button');st.className='chip';st.textContent='ابدأ من الشارع';st.onclick=()=>{stopTour();toStreet();};bar.appendChild(st);
+  const up=document.createElement('button');up.className='chip';up.textContent='اطلع للدور الأول';up.onclick=()=>{stopTour();toFloor(1);};bar.appendChild(up);
+  const b=document.createElement('button');b.className='chip';b.setAttribute('aria-pressed',!!tour);
+  b.textContent=tour?'■ إيقاف الجولة':'▶ جولة تلقائية';b.onclick=()=>{tour?stopTour():startTour();};bar.appendChild(b);}
+function makeCursor(){const g=new THREE.Group();
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.22,.28,48),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.9,depthWrite:false}));
+  const dot=new THREE.Mesh(new THREE.CircleGeometry(.22,48),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.18,depthWrite:false}));
+  for(const m of [ring,dot]){m.rotation.x=-Math.PI/2;g.add(m);}g.visible=false;g.renderOrder=5;return g;}
+function enterWalk(model){walkOn=true;walkModel=model;document.body.classList.add('walking');controls.enabled=false;tween=null;
+  colliders=[];levels=[];model.traverse(o=>{if(o.isMesh)colliders.push(o);const m=/^Furn (\d+)$/.exec(o.name);if(m)levels.push({o,l:+m[1]});});
+  if(!cursor)cursor=makeCursor();scene.add(cursor);
+  cam.fov=70;cam.near=.05;cam.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.toneMappingExposure=1.12;lamp.intensity=5;setBg();
+  toStreet();clearHots();card.hidden=true;$('hint').hidden=true;
+  for(const id of ['whint','pad','speed','room'])$(id).hidden=false;setWalkBar();}
+function exitWalk(){if(!walkOn)return;walkOn=false;tour=null;goal=null;document.body.classList.remove('walking');controls.enabled=true;
+  if(cursor)scene.remove(cursor);cam.fov=35;cam.near=.1;cam.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.toneMappingExposure=1.0;lamp.intensity=0;setBg();
+  for(const id of ['whint','pad','speed','room'])$(id).hidden=true;$('hint').hidden=false;}
+
+// look by dragging • tap the floor to walk there
+let drag=null;const ndc=new THREE.Vector2(),nrm=new THREE.Vector3();
+function floorHit(e){const r=renderer.domElement.getBoundingClientRect();ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+  ray.setFromCamera(ndc,cam);ray.far=40;const h=ray.intersectObject(walkModel,true)[0];if(!h||!h.face)return null;
+  nrm.copy(h.face.normal).transformDirection(h.object.matrixWorld);return (nrm.y>.7&&Math.abs(h.point.y-feet)<.35)?h.point:null;}
+renderer.domElement.addEventListener('pointerdown',e=>{if(!walkOn)return;drag={x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t:performance.now(),id:e.pointerId};renderer.domElement.setPointerCapture(e.pointerId);});
+renderer.domElement.addEventListener('pointermove',e=>{if(!walkOn)return;
+  if(drag&&e.pointerId===drag.id){yaw+=(e.clientX-drag.x)*.0045;pitch=THREE.MathUtils.clamp(pitch+(e.clientY-drag.y)*.0035,-1.0,1.0);drag.x=e.clientX;drag.y=e.clientY;
+    if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)>6)stopTour();if(cursor)cursor.visible=false;return;}
+  if(e.pointerType==='mouse'&&cursor){const p=floorHit(e);cursor.visible=!!p;if(p)cursor.position.set(p.x,p.y+.03,p.z);}});
+renderer.domElement.addEventListener('pointerup',e=>{if(!walkOn||!drag)return;const moved=Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0),quick=performance.now()-drag.t<500;drag=null;
+  if(moved<7&&quick){const p=floorHit(e);if(p){stopTour();goal={x:p.x,z:p.z};if(cursor){cursor.position.set(p.x,p.y+.03,p.z);cursor.visible=true;}}}});
+renderer.domElement.addEventListener('pointercancel',()=>{drag=null;});
+renderer.domElement.addEventListener('pointerleave',()=>{if(cursor&&!goal)cursor.visible=false;});
+// keyboard
+addEventListener('keydown',e=>{if(!walkOn||e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;const k=e.key.toLowerCase();
+  if(['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d','shift'].includes(k)){keys[k]=true;stopTour();goal=null;if(k.startsWith('arrow'))e.preventDefault();}
+  if(e.key==='+'||e.key==='=')setSpeed(Math.min(3,speedMul+.25));if(e.key==='-')setSpeed(Math.max(.5,speedMul-.25));});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
+// speed control
+function setSpeed(val){speedMul=+val;$('spd').value=val;$('spdv').textContent=fmt(speedMul)+'×';
+  document.querySelectorAll('.spdq button').forEach(b=>b.classList.toggle('on',Math.abs(+b.dataset.v-speedMul)<.01));
+  try{localStorage.setItem('walkSpeed',speedMul);}catch(e){}}
+$('spd').addEventListener('input',e=>setSpeed(e.target.value));
+document.querySelectorAll('.spdq button').forEach(b=>b.onclick=()=>setSpeed(b.dataset.v));
+try{const sv=localStorage.getItem('walkSpeed');setSpeed(sv?sv:1);}catch(e){setSpeed(1);}
+// on-screen arrows: hold to walk / turn
+document.querySelectorAll('#pad button').forEach(b=>{const k=b.dataset.k;
+  const on=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);keys[k]=true;b.classList.add('on');stopTour();goal=null;};
+  const off=()=>{keys[k]=false;b.classList.remove('on');};
+  b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off);
+  b.addEventListener('contextmenu',e=>e.preventDefault());});
+
+let lastRoom='',lastLvl=-1;
+function stepWalk(dt){
+  if(tour){const P=tour.P,cur=P[tour.i],nxt=P[tour.i+1];let want=null;
+    if(tour.pause>0){tour.pause-=dt*Math.max(1,speedMul*.8);if(cur.look)want=angTo(cur.look[0]-pos.x,cur.look[1]-pos.y);vel.multiplyScalar(Math.exp(-dt*8));}
+    else if(!nxt){tour=null;setWalkBar();}
+    else{const dx=nxt.p[0]-pos.x,dz=nxt.p[1]-pos.y,d=Math.hypot(dx,dz),sp=Math.min(1.05*speedMul,d*1.6+.25);
+      if(d<.05){tour.i++;tour.pause=P[tour.i].pause;}
+      else{vel.set(dx/d*sp,dz/d*sp);const st=Math.min(dt,d/sp);pos.x+=vel.x*st;pos.y+=vel.y*st;want=angTo(dx,dz);
+        if(d<1.2&&nxt.look)want=angTo(nxt.look[0]-pos.x,nxt.look[1]-pos.y);}}
+    if(want!==null)yaw=lerpAng(yaw,want,1-Math.exp(-dt*2.6));pitch+=(-.04-pitch)*(1-Math.exp(-dt*3));
+  }else{
+    let tx=0,tz=0,sp=0;
+    const fwd=(keys['arrowup']||keys['w']?1:0)-(keys['arrowdown']||keys['s']?1:0),str=(keys['d']?1:0)-(keys['a']?1:0);
+    const turn=(keys['arrowleft']?1:0)-(keys['arrowright']?1:0);
+    yawVel+=(turn*1.5*Math.sqrt(speedMul)-yawVel)*(1-Math.exp(-dt*8));yaw+=yawVel*dt;
+    if(fwd||str){const fx=-Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);
+      tx=fx*fwd+rx*str;tz=fz*fwd+rz*str;const tl=Math.hypot(tx,tz);tx/=tl;tz/=tl;sp=(fwd<0?.8:1.35)*speedMul*(keys['shift']?1.6:1);}
+    else if(goal){const dx=goal.x-pos.x,dz=goal.z-pos.y,d=Math.hypot(dx,dz);
+      if(d<.06){goal=null;if(cursor)cursor.visible=false;}else{sp=Math.min(1.25*speedMul,d*1.5+.15);tx=dx/d;tz=dz/d;}}
+    const k=1-Math.exp(-dt*7);vel.x+=(tx*sp-vel.x)*k;vel.y+=(tz*sp-vel.y)*k;
+    const mx=vel.x*dt,mz=vel.y*dt;
+    if(!tryMove(mx,mz)){if(tryMove(mx,0))vel.y*=.3;else if(tryMove(0,mz))vel.x*=.3;else{vel.set(0,0);goal=null;if(cursor)cursor.visible=false;}}}
+  // follow the ground: smooth on stairs, fall if there is a drop
+  const g=groundAt(pos.x,pos.y,feet);
+  if(g!==null){if(g>feet){feet+=(g-feet)*Math.min(1,dt*14);vy=0;}
+    else if(feet-g<.5){feet+=(g-feet)*Math.min(1,dt*12);vy=0;}
+    else{vy-=9.8*dt;feet=Math.max(g,feet+vy*dt);}}
+  const s=vel.length();bob+=dt*s*5.2;const by=Math.sin(bob)*.02*Math.min(1,s/1.2);
+  cam.position.set(pos.x,feet+EYE+by,pos.y);cam.rotation.order='YXZ';cam.rotation.set(pitch,yaw,0);lamp.position.set(pos.x,feet+2.2,pos.y);
+  const lvl=Math.max(0,Math.round(feet/FH));
+  if(lvl!==lastLvl){lastLvl=lvl;for(const L of levels)L.o.visible=Math.abs(L.l-lvl)<=1;}
+  const rn=whereAmI(pos.x,pos.y,feet);if(rn!==lastRoom){lastRoom=rn;$('room').textContent=rn;}}
+
+// ================= tabs =================
+const TABS=['building','floor','walk'],MODEL={building:'building',floor:'typical-floor',walk:'walk'};
+async function setView(vw){view_=vw;apt=0;exitWalk();
+  TABS.forEach(t=>$('v-'+t).setAttribute('aria-pressed',vw===t));
+  bar.innerHTML='';card.hidden=true;clearHots();
+  status.hidden=false;status.innerHTML=vw==='walk'?'جاري تحميل العمارة من جوه…<small>ثواني قليلة</small>':'جاري تحميل النموذج…';
+  try{const m=await load(MODEL[vw]);if(view_!==vw)return;
+    if(current)scene.remove(current);current=m;scene.add(m);status.hidden=true;
+    if(vw==='walk'){enterWalk(m);return;}
+    if(vw==='building'){goTo([13,12,12],-25,78,72,true);}
+    else{addHots();showCard(null);goTo([13,0,10.5],-15,48,44,true);}
+    setBar();
+  }catch(e){status.textContent='مقدرناش نحمّل النموذج. حدّث الصفحة وجرّب تاني.';console.error(e);}}
+TABS.forEach(t=>$('v-'+t).onclick=()=>setView(t));
+
+let lastT=performance.now();
+function loop(now){requestAnimationFrame(loop);const dt=Math.min(.12,(now-lastT)/1000);lastT=now;
+  if(walkOn){const n=Math.ceil(dt/.03);for(let i=0;i<n;i++)stepWalk(dt/n);renderer.render(scene,cam);return;}
+  if(tween){const k=Math.min(1,(now-tween.t0)/tween.d),e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+    controls.target.lerpVectors(tween.fromT,tween.toT,e);cam.position.lerpVectors(tween.fromP,tween.toP,e);if(k>=1)tween=null;}
+  controls.update();renderer.render(scene,cam);placeHots();}
+controls.addEventListener('start',()=>{tween=null;});
+setView('building');requestAnimationFrame(loop);
+</script>
